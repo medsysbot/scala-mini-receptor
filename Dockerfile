@@ -1,12 +1,19 @@
-FROM sbtscala/scala-sbt:eclipse-temurin-21.0.4_7_1.10.2_3.5.2
+FROM eclipse-temurin:17-jdk AS build
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends scala \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
-COPY build.sbt ./
-COPY src ./src
+COPY src/main/scala/Main.scala .
+RUN scalac Main.scala \
+    && jar cfe scala-mini-receptor.jar Main *.class
 
-RUN sbt compile
+FROM eclipse-temurin:17-jre
+WORKDIR /app
+
+COPY --from=build /app/scala-mini-receptor.jar /app/scala-mini-receptor.jar
 
 ENV PORT=8080
 EXPOSE 8080
 
-CMD ["sbt", "run"]
+CMD ["java", "--add-modules", "jdk.httpserver", "-jar", "/app/scala-mini-receptor.jar"]
