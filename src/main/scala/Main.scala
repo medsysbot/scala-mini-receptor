@@ -13,9 +13,8 @@ object Main {
       case None => DefaultPort
       case Some(value) =>
         Try(value.toInt).toOption match {
-          case None => DefaultPort
           case Some(port) if port >= MinimumPort && port <= MaximumPort => port
-          case Some(_) =>
+          case _ =>
             throw new IllegalArgumentException(
               s"Invalid PORT value '$value': expected an integer between $MinimumPort and $MaximumPort"
             )
