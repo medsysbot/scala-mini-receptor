@@ -3,6 +3,7 @@
   "name": "Scala Mini Receptor",
   "repository": "medsysbot/scala-mini-receptor",
   "branch": "main",
+  "credential_ref": "GOVERNEVO_GITHUB_TOKEN_SCALA",
   "public_url": "https://scala-mini-receptor-production.up.railway.app",
   "health": "/"
 }
