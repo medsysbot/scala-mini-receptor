@@ -1,10 +1,14 @@
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import java.net.{InetSocketAddress, URLDecoder}
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.atomic.AtomicBoolean
 import scala.util.Try
 
 object Main {
   private val DefaultPort = 8080
+  // Drain window in seconds passed to HttpServer.stop(delaySeconds).
+  // Non-zero gives in-flight exchanges a chance to complete during termination.
+  private val ShutdownDrainSeconds = 2
 
   private val Page =
     """<!doctype html>
@@ -76,11 +80,24 @@ analyze();
       }.toMap
     }.getOrElse(Map.empty)
 
-  private def intParam(params: Map[String,String], key: String, min: Int, max: Int): Option[Int] =
+  private def intParam(params: Map[String, String], key: String, min: Int, max: Int): Option[Int] =
     params.get(key).flatMap(v => Try(v.toInt).toOption).filter(v => v >= min && v <= max)
 
   def main(args: Array[String]): Unit = {
     val server = HttpServer.create(new InetSocketAddress("0.0.0.0", configuredPort), 0)
+
+    // Ensure clean termination on SIGTERM/CTRL-C: stop accepting new connections and
+    // allow a short drain window for in-flight requests.
+    val stopping = new AtomicBoolean(false)
+    Runtime.getRuntime.addShutdownHook(new Thread(() => {
+      if (stopping.compareAndSet(false, true)) {
+        try server.stop(ShutdownDrainSeconds)
+        catch {
+          // Best-effort shutdown; avoid blocking JVM termination if stop throws.
+          case _: Throwable => ()
+        }
+      }
+    }, "shutdown-hook"))
 
     server.createContext("/", new HttpHandler {
       override def handle(exchange: HttpExchange): Unit = {
